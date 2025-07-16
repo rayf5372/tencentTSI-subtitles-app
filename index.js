@@ -63,19 +63,22 @@ const sendAudioToTencent = (filePath, res) => {
     const fileStream = fs.createReadStream(filePath);
 
     const form = new FormData();
-    form.append('file', fileStream);
-    form.append('language', 'zh'); // Adjust if needed
+    form.append('file', fileStream);      
+    form.append('Source', 'en');          // <-- input language
+    form.append('Target', 'zh');          // <-- desired translation
+    form.append('ProjectId', '0');        
 
-    axios.post('https://api.tencentcloud.com/v1/translate', form, {
+    axios.post('https://tmt.tencentcloudapi.com', form, {
         headers: {
-            ...form.getHeaders(), 
+            ...form.getHeaders(),
         },
     })
     .then(response => {
-        res.json(response.data);  
+        console.log('Tencent response:', response.data);
+        res.json(response.data); 
     })
     .catch(error => {
-        console.error(error);
+        console.error('Translation failed:', error);
         res.status(500).send('Translation failed');
     });
 };

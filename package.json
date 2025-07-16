@@ -1,0 +1,23 @@
+{
+  "name": "tencenttsi-subtitles-app",
+  "version": "1.0.0",
+  "description": "An MVP tool to test Tencent Cloud's real-time speech translation API.  Built with Node.js, Express, and WebSocket.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rayf5372/tencentTSI-subtitles-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rayf5372/tencentTSI-subtitles-app/issues"
+  },
+  "homepage": "https://github.com/rayf5372/tencentTSI-subtitles-app#readme",
+  "dependencies": {
+    "multer": "^2.0.1"
+  }
+}
