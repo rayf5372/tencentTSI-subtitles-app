@@ -1,4 +1,3 @@
-// index.js
 require('dotenv').config();
 const express = require('express');
 const multer  = require('multer');
@@ -21,18 +20,16 @@ app.post('/upload', upload.single('video'), async (req, res) => {
     await convertToPcm(orig, pcm);
     const translation = await translateAudioToChinese(pcm);
 
-    // cleanup temp files
+    // cleanup 
     fs.unlinkSync(orig);
     fs.unlinkSync(pcm);
 
-    // dump the raw TSI output for offline processing
     fs.writeFileSync(
       path.join(__dirname, 'latest_output.json'),
       JSON.stringify(translation, null, 2),
       'utf-8'
     );
 
-    // respond once
     res.json({ translation });
   } catch (e) {
     console.error(e);

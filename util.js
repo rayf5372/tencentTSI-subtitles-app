@@ -1,10 +1,8 @@
-// util.js
 const fs       = require('fs');
 const ffmpeg   = require('fluent-ffmpeg');
 const tencent  = require('tencentcloud-sdk-nodejs');
 const { v4: uuidv4 } = require('uuid');
 
-// TSI client (no Region, just the auto‑region endpoint)
 const TsiClient = tencent.tsi.v20210325.Client;
 const clientConfig = {
   credential: {
