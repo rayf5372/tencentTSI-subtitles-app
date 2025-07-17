@@ -13,14 +13,26 @@ app.post('/upload', upload.single('video'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: '请用 key="video" 上传一个 MP4 文件' });
   }
+
   const orig = req.file.path;
   const pcm  = path.join('uploads', `${req.file.filename}.pcm`);
 
   try {
     await convertToPcm(orig, pcm);
     const translation = await translateAudioToChinese(pcm);
+
+    // cleanup temp files
     fs.unlinkSync(orig);
     fs.unlinkSync(pcm);
+
+    // dump the raw TSI output for offline processing
+    fs.writeFileSync(
+      path.join(__dirname, 'latest_output.json'),
+      JSON.stringify(translation, null, 2),
+      'utf-8'
+    );
+
+    // respond once
     res.json({ translation });
   } catch (e) {
     console.error(e);
@@ -28,6 +40,6 @@ app.post('/upload', upload.single('video'), async (req, res) => {
   }
 });
 
-app.listen(process.env.PORT||3000, () =>
-  console.log(`Listening on http://localhost:${process.env.PORT||3000}`)
+app.listen(process.env.PORT || 3000, () =>
+  console.log(`Listening on http://localhost:${process.env.PORT || 3000}`)
 );
