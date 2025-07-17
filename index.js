@@ -1,88 +1,54 @@
-require('dotenv').config();
-const { generateSignature } = require('./utils');
-const WebSocket = require('ws'); 
+// index.js
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
-const ffmpeg = require('fluent-ffmpeg');
 const path = require('path');
-const axios = require('axios');
-const FormData = require('form-data');  
-
-const secretID = process.env.TENCENT_SECRET_ID;
-const secretKey = process.env.TENCENT_SECRET_KEY;
-const appID = process.env.TENCENT_APP_ID;
-const regionURL = 'wss://tsi.ap-shanghai.tencentcloudapi.com'; 
-const timestamp = Math.floor(Date.now() / 1000);
-const expired = timestamp + 86400; // 24 hours
-
-const signature = generateSignature(secretID, secretKey, timestamp, expired);
-
-const wsUrl = `${regionURL}/?appid=${appID}&secretid=${secretID}&timestamp=${timestamp}&expired=${expired}&signature=${signature}`;
-
-const ws = new WebSocket(wsUrl);
-
-ws.on('open', () => {
-    console.log('Connected to Tencent TSI API via WebSocket');
-});
-
-ws.on('message', (data) => {
-    console.log('Received message from API:', data);
-});
-
-ws.on('close', () => {
-    console.log('WebSocket connection closed');
-});
-
-ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
-});
+const fs = require('fs');
+const { convertToWav, translateAudioToChinese } = require('./util');
+const dotenv = require('dotenv');
+dotenv.config();
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
+const port = process.env.PORT || 3000;
 
-app.post('/upload', upload.single('file'), (req, res) => {
-    const audioFilePath = req.file.path;
-    console.log('Received file:', audioFilePath);
+// Setup for file upload
+const upload = multer({
+  dest: 'uploads/', // temporary location for uploaded files
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit for the upload
+}).single('audio'); // Expecting the file to be sent as 'audio'
 
-    const outputFilePath = path.join(__dirname, 'uploads', `${req.file.filename}.wav`);
-    ffmpeg(audioFilePath)
-        .toFormat('wav')
-        .on('end', () => {
-            console.log('File converted to WAV:', outputFilePath);
-            sendAudioToTencent(outputFilePath, res);
-        })
-        .on('error', (err) => {
-            console.error('Error during conversion:', err);
-            res.status(500).send('Error converting file');
-        })
-        .save(outputFilePath);
+// Route to handle file upload and processing
+app.post('/upload', (req, res) => {
+  upload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).send({ error: 'File upload failed', details: err });
+    }
+
+    const uploadedFilePath = req.file.path;
+    const wavFilePath = path.join('uploads', `${req.file.filename}.wav`);
+
+    try {
+      // Step 1: Convert MP4 to WAV
+      await convertToWav(uploadedFilePath, wavFilePath);
+
+      // Step 2: Translate the audio to Chinese using Tencent TSI API
+      const translationResult = await translateAudioToChinese(wavFilePath);
+
+      // Clean up: Remove the temporary files
+      fs.unlinkSync(uploadedFilePath);
+      fs.unlinkSync(wavFilePath);
+
+      // Respond with the translated result
+      res.status(200).json({
+        originalAudio: uploadedFilePath,
+        translation: translationResult,
+      });
+    } catch (error) {
+      console.error('Error processing the file:', error);
+      res.status(500).send({ error: 'An error occurred while processing the audio.' });
+    }
+  });
 });
 
-const sendAudioToTencent = (filePath, res) => {
-    const fileStream = fs.createReadStream(filePath);
-
-    const form = new FormData();
-    form.append('file', fileStream);      
-    form.append('Source', 'en');          // <-- input language
-    form.append('Target', 'zh');          // <-- desired translation
-    form.append('ProjectId', '0');        
-
-    axios.post('https://tmt.tencentcloudapi.com', form, {
-        headers: {
-            ...form.getHeaders(),
-        },
-    })
-    .then(response => {
-        console.log('Tencent response:', response.data);
-        res.json(response.data); 
-    })
-    .catch(error => {
-        console.error('Translation failed:', error);
-        res.status(500).send('Translation failed');
-    });
-};
-
-app.listen(3000, () => {
-    console.log('Server is running on http://localhost:3000');
+app.listen(port, () => {
+  console.log(`Server is running on http://localhost:${port}`);
 });
