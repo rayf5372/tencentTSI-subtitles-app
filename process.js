@@ -1,35 +1,49 @@
 const fs   = require('fs');
 const path = require('path');
 
-const raw = JSON.parse(
-  fs.readFileSync(path.join(__dirname, 'latest_output.json'), 'utf-8')
-);
-
-function summarize(raw) {
-  const byId = raw.reduce((acc, x) => {
-    if (!acc[x.SeId] || x.SeVer > acc[x.SeId].SeVer) {
-      acc[x.SeId] = x;
-    }
-    return acc;
-  }, {});
-  return Object.values(byId).sort((a, b) => a.StartTime - b.StartTime);
+const input = process.argv[2] || 'latest_output.json';
+if (!fs.existsSync(input)) {
+  console.error(`ERROR: ${input} not found.`);
+  process.exit(1);
 }
 
-function formatPairs(segments) {
-  return segments
-    .map(seg =>
-      `${seg.SourceText.trim()}\n${seg.TargetText.trim()}`
-    )
+const raw = JSON.parse(fs.readFileSync(input, 'utf-8'));
+
+const arr = Array.isArray(raw)
+  ? raw
+  : raw.translation
+    ? raw.translation
+    : raw.segments
+      ? raw.segments
+      : null;
+
+if (!arr) {
+  console.error(`ERROR: no .translation or .segments array found in ${input}`);
+  process.exit(1);
+}
+
+function summarize(list) {
+  const map = {};
+  for (const x of list) {
+    if (!map[x.SeId] || x.SeVer > map[x.SeId].SeVer) {
+      map[x.SeId] = x;
+    }
+  }
+  return Object.values(map).sort((a, b) => a.StartTime - b.StartTime);
+}
+
+function formatPairs(segs) {
+  return segs
+    .map(s => `${s.SourceText.trim()}\n${s.TargetText.trim()}`)
     .join('\n\n');
 }
 
-const summary   = summarize(raw);
-const formatted = formatPairs(summary);
+const summary = summarize(arr);
+const out     = formatPairs(summary);
 
-fs.writeFileSync(
-  path.join(__dirname, 'formatted.txt'),
-  formatted,
-  'utf-8'
-);
+const outName = input.includes('stream')
+  ? 'formatted_stream.txt'
+  : 'formatted.txt';
 
-console.log(`Successfully formatted.txt written (${summary.length} segments)`);
+fs.writeFileSync(outName, out, 'utf-8');
+console.log(`Successfully wrote ${outName} (${summary.length} segments)`);
